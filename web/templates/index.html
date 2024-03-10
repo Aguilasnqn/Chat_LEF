@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!--meta http-equiv="cache-control" content="no-cache"--> <!-- Agregar metaetiqueta para desactivar la caché -->
+  <title>CHAT-LEF</title>
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="icon" href="static/image/favicon.ico" type="x-icon">
+</head>
+<body>
+  <section class="msger">
+    <header class="msger-header">
+      <div class="msger-header-title">
+        <i class="fas fa-comment-alt"></i> CHATLEF Asistente virtual de Cursos de IA
+      </div>
+      <div class="msger-header-options">
+        <span><i class="fas fa-cog"></i></span>
+      </div>
+    </header>
+
+    <main class="msger-chat" id="chat-area"></main>
+
+    <form class="msger-inputarea" onsubmit="enviarMensaje(event)">
+      <input type="text" id="messageInput" class="msger-input" placeholder="Escribe tu pregunta...">
+      <button type="submit" class="msger-send-btn" id="enviar">Enviar</button>
+      <button type="button" class="btn-record btn-record-green" id="record1" onclick="record()">
+        <img class="mic-img" src="static/image/microphone.png" />
+      </button>
+      <button type="button" class="btn-record btn-record-red" id="stop1" onclick="stop()" style="display:none">
+        <img class="mic-img" id="record-stop-label" src="static/image/microphone.png" />
+        <span id="record-stop-loading" style="display: none"><span class="spinner-border spinner-border-sm record-spinner" role="status" aria-hidden="true"></span></span>
+      </button>
+      <div class="voz-container">
+        <label for="vozCheckbox" class="voz-label">Voz</label>
+        <input type="checkbox" id="vozCheckbox" class="voz-checkbox">
+      </div>
+      
+    </form>
+  </section>
+  <script src="static/script.js"></script>
+</body>
+</html>
