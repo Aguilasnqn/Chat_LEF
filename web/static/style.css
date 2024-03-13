@@ -165,7 +165,7 @@
     flex: 1;
     padding: 10px;
     overflow-y: auto; /* Agrega una barra de desplazamiento vertical si el contenido supera la altura máxima */
-    max-height: 400px; /* Establece una altura máxima para el área de chat */
+    max-height: 500px; /* Establece una altura máxima para el área de chat */
   }
 
 
