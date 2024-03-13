@@ -12,6 +12,8 @@ from html import escape
 from youtube_transcript_api import YouTubeTranscriptApi # Busco la linea de tiempo de un video en particular
 import json
 
+
+
 # Cargar llaves del archivo .env
 load_dotenv('.env')
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -28,13 +30,28 @@ vector_store = Pinecone.from_existing_index(indice, embedding)
 
 from langchain.chains import ConversationalRetrievalChain
 from langchain_openai import ChatOpenAI
-
 # Preparo la LLM
-llm1 = ChatOpenAI(model="gpt-3.5-turbo", temperature=1)
+llm1 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.5,max_tokens=1024)
+#llm1 = ChatOpenAI(model="text-davinci-003", temperature=0.7,max_tokens=1024)
 retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
 crc = ConversationalRetrievalChain.from_llm(llm=llm1, retriever=retriever)
 memoria = []
 ubicartiempo=YouTubeTranscriptApi
+
+# Resumir usa estas librerias
+#from langchain import PromptTemplate
+from langchain.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
+#from langchain.document_loaders import YoutubeLoader
+from langchain_community.document_loaders import YoutubeLoader
+#from langchain.chat_models import ChatOpenAI
+#from langchain_community.chat_models import ChatOpenAI
+#from langchain_community.chat_models import PromptTemplate
+from langchain.text_splitter import RecursiveCharacterTextSplitter as RC 
+from langchain.chains.summarize import load_summarize_chain
+#from langchain.document_loaders import YoutubeLoader
+from langchain_community.document_loaders import YoutubeLoader
+
 
 app = Flask(__name__)
 
@@ -50,12 +67,23 @@ def recibir_texto():  #recibe una pregunta en formato JSON
    respuesta = texto(mensaje)
    return jsonify({"respuesta": respuesta})
 
-def texto(pregunta): # busca la respuesta en la llm , convierte los enlaces si tiene para html y mailito
-    respuesta = crc({"question": pregunta, "chat_history": memoria})
-    memoria.append((pregunta, respuesta["answer"]))
+def texto(pregunta): # busca la respuesta en la llm , convierte los enlaces si tiene para html y mailito, tambien detecta si hay un resumen de algun video
+#    respuesta = crc({"question": pregunta, "chat_history": memoria})
+     # identifica si quiere hacer un resumen
+        patron_palabras = r'\b(resumen)\b'
+        coincidencias = re.findall(patron_palabras, pregunta, flags=re.IGNORECASE)
+        if coincidencias: # hace el resumen del link
+            patron_url = r'(https?://\S+(?:&\S+)*)'
+            url = re.findall(patron_url, pregunta)
+            if url:
+               respuesta = resumir(url[0])  # Solo se toma la primera URL si hay múltiples
+               return respuesta
+        respuesta = crc({"question": pregunta,"chat_history": memoria})
+
+        memoria.append((pregunta, respuesta["answer"]))
     
-    respuesta = convertir_urls_a_enlaces(respuesta["answer"],pregunta)
-    return respuesta
+        respuesta = convertir_urls_a_enlaces(respuesta["answer"],pregunta)
+        return respuesta
 
 #Maneja las solicitudes POST para transcribir un archivo de audio recibido y devolver el texto transcrito.
 @app.route("/audio", methods=["POST"])
@@ -73,11 +101,8 @@ def recibir_texto_voz():
     patron_url = r'(https?://\S+)'
     
     # Reemplazar todas las URLs en la cadena de texto por el texto "Click en el Link"
-    # hay que extrer el lik generado por que si no da un error
+    # hay que extrer el link generado por que si no da un error
     mensaje = re.sub(patron_url, 'Click en el Link', mensaje)
-
-
-
     speech_file_path = Path(__file__).parent / "static/respuestaia.mp3"
     resp = client.audio.speech.create(
            model="tts-1",
@@ -101,8 +126,6 @@ def recibir_texto_voz():
     return jsonify({"respuesta":"respuestaia.mp3"})
   
 
-
-
 def convertir_urls_a_enlaces(texto, pregunta1):
     # Expresión regular para identificar URLs
     patron_url = r'(https?://\S+(?:&\S+)*)'
@@ -123,10 +146,16 @@ def convertir_urls_a_enlaces(texto, pregunta1):
                    # enlaces_modificados[url] = url_con_tiempo
                         
         # Reemplazar cada enlace en el texto con su versión modificada
-      
+        
+        
+# Imprimir las coincidencias encontradas
         for url, enlace_html in enlaces_modificados.items():
             texto = texto.replace(url, enlace_html)
         # Expresión regular para identificar direcciones de correo electrónico
+            
+
+        
+
     patron_email = r'([\w\-]+@[\w\.-]+)'
     emails = re.findall(patron_email, texto)
 
@@ -135,8 +164,14 @@ def convertir_urls_a_enlaces(texto, pregunta1):
         if email.endswith('.'):
             email = email[:-1]  # Eliminar el punto final si existe por que me lo entregaba con un . al final
         enlace_email = f'<a href="mailto:{email}">{email}</a>'
-        texto = texto.replace(email, enlace_email)    
+        texto = texto.replace(email, enlace_email)   
+    
     return texto
+
+
+
+
+
 
 
 def buscar_minuto_comienzo(clave, url1):
@@ -144,6 +179,7 @@ def buscar_minuto_comienzo(clave, url1):
     id = re.search(patron, url1)
     if id:
         _id = id.group(0)
+        texto_transcripcion=""
         transcripcion = ubicartiempo.get_transcript(_id, languages=('es',))
         if transcripcion:
             for item in transcripcion:
@@ -161,6 +197,52 @@ def obtener_palabra_clave(frase):
         return coincidencia.group(1)  # Devolver la palabra clave encontrada
     else:
         return ""
+
+
+
+def resumir(url):
+    #url='https://www.youtube.com/watch?v=XLAdvjbQe6M'
+    # Cargar transcripción del video de YouTube
+    loader = YoutubeLoader.from_youtube_url(url, add_video_info=True, language=["es"])
+    transcripcion = loader.load()
+
+    # Dividir la transcripción en fragmentos
+    text_splitter = RC(chunk_size=2000, chunk_overlap=20)
+    fragmentos = text_splitter.split_documents(transcripcion)
+
+    # Inicializar el modelo de inteligencia artificial
+    llm = ChatOpenAI(temperature=0, model_name='gpt-3.5-turbo', openai_api_key=OPENAI_API_KEY)
+
+    # Definir plantillas de texto para las solicitudes iniciales y de refinamiento del resumen
+    prompt_template = """Escribe un resumen de lo siguiente extrayendo la información clave:
+    Text: {text}
+    Resumen:"""
+    prompt_inicial = PromptTemplate(template=prompt_template, input_variables=['text'])
+
+    refine_template = '''
+    Tu trabajo consiste en elaborar un resumen final detallado.
+    He proporcionado un resumen existente hasta cierto punto: {existing_answer}.
+    Por favor, perfeccione el resumen existente con algo más de contexto a continuación.
+    ------------
+    {text}
+    ------------
+    Comience el resumen final con una "Introducción" que ofrezca una visión general del tema seguido
+    por los puntos más importantes ("Bullet Ponts"). Termina el resumen con una conclusión.
+    '''
+    refine_prompt = PromptTemplate(
+        template=refine_template,
+        input_variables=['existing_answer', 'text']
+    )
+
+    # Cargar y ejecutar la cadena de resumen
+    chain = load_summarize_chain(llm=llm, chain_type='refine', question_prompt=prompt_inicial, refine_prompt=refine_prompt, return_intermediate_steps=False)
+    resumen = chain.run(fragmentos)
+    resumen_formateado = f"Resumen:\n\n{resumen}"
+
+    return resumen_formateado
+
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

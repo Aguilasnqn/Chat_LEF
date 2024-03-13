@@ -26,7 +26,7 @@ function createMessageElement(name, text) {
   if (name === 'Tú') {
     messageElement.classList.add('right-msg');
   }
-  
+
   const currentTime = new Date();
   const hours = currentTime.getHours().toString().padStart(2, '0'); // Agregar cero al principio si es necesario
   const minutes = currentTime.getMinutes().toString().padStart(2, '0');
@@ -96,50 +96,50 @@ function enviarTexto(texto) {
 
 function reproducirAudio(url) {
   fetch(url)
-      .then(response => response.arrayBuffer())
-      .then(buffer => {
-          // Decodificar el ArrayBuffer en un audio
-          return new AudioContext().decodeAudioData(buffer);
-      })
-      .then(audioBuffer => {
-          // Crear un nuevo buffer de audio
-          const audioContext = new AudioContext()
-          const audioSource = new AudioBufferSourceNode(audioContext, { buffer: audioBuffer });
-          // Conectar el buffer de audio al destino de salida (los altavoces)
-          audioSource.connect(audioContext.destination);
-          // Iniciar la reproducción
-          audioSource.start();
-      })
-      .catch(error => {
-          console.error('Error al reproducir el audio:', error);
-      });
+    .then(response => response.arrayBuffer())
+    .then(buffer => {
+      // Decodificar el ArrayBuffer en un audio
+      return new AudioContext().decodeAudioData(buffer);
+    })
+    .then(audioBuffer => {
+      // Crear un nuevo buffer de audio
+      const audioContext = new AudioContext()
+      const audioSource = new AudioBufferSourceNode(audioContext, { buffer: audioBuffer });
+      // Conectar el buffer de audio al destino de salida (los altavoces)
+      audioSource.connect(audioContext.destination);
+      // Iniciar la reproducción
+      audioSource.start();
+    })
+    .catch(error => {
+      console.error('Error al reproducir el audio:', error);
+    });
 }
 
 function enviarTextoVoz(texto) {
   const data = { message: texto };
   fetch('/texto_voz', {
-      method: 'POST',
-      headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
-      },
-      body: JSON.stringify(data)
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache'
+    },
+    body: JSON.stringify(data)
   })
-      .then(response => {
-          if (!response.ok) {
-              console.log('Error al enviar el mensaje');
-          } else {
-              return response.json();
-          }
-      })
-      .then(data => {
-          if (data && data.respuesta) {
-              reproducirAudio("static/" + data.respuesta);
-          }
-      })
-      .catch(error => {
-          console.error('Error:', error);
-      });
+    .then(response => {
+      if (!response.ok) {
+        console.log('Error al enviar el mensaje');
+      } else {
+        return response.json();
+      }
+    })
+    .then(data => {
+      if (data && data.respuesta) {
+        reproducirAudio("static/" + data.respuesta);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+    });
 }
 
 
@@ -175,7 +175,7 @@ async function record() {
 
 function doPreview() {
   if (!blobs.length) {
-   // console.log("No hay blobios!");
+    // console.log("No hay blobios!");
   } else {
     //console.log("Tenemos blobios!");
     const blob = new Blob(blobs);
@@ -185,17 +185,17 @@ function doPreview() {
       method: "POST",
       body: fd,
     })
-    .then((response) => response.json())
-    .then(audioResponseHandler)
-    .catch(err => {
-      console.log("Oops: Ocurrió un error al convertir la respuesta a JSON", err);
-    })
-    .then(() => {
-      console.log("La promesa anterior se completó correctamente");
-    })
-    .catch(err => {
-      console.log("Oops: Ocurrió un error en alguna parte de la cadena", err);
-    });
+      .then((response) => response.json())
+      .then(audioResponseHandler)
+      .catch(err => {
+        console.log("Oops: Ocurrió un error al convertir la respuesta a JSON", err);
+      })
+      .then(() => {
+        console.log("La promesa anterior se completó correctamente");
+      })
+      .catch(err => {
+        console.log("Oops: Ocurrió un error en alguna parte de la cadena", err);
+      });
   }
 }
 
